@@ -1,0 +1,2131 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta name="x-poe-datastore-behavior" content="local_only"><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
+<meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;0,7..72,700;1,7..72,400&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>家办业务覆盖对比图</title>
+<style>
+  /*
+   * Open Design — 「editorial-monocle」方向令牌（OKLch + 字体栈）
+   * 源码：nexu-io/open-design → apps/daemon/src/prompts/directions.ts
+   * 气质：Monocle / FT 式编辑部 — 衬线标题、系统 sans 正文、克制朱砂点缀、边框优于投影。
+   * 展示字体用开源 Literata 近似 Iowan Old Style / Charter；中文回退苹方/雅黑。
+   */
+  :root {
+    --bg: oklch(98% 0.004 95);
+    --surface: oklch(100% 0.002 95);
+    --fg: oklch(20% 0.018 70);
+    --muted: oklch(48% 0.012 70);
+    --border: oklch(90% 0.006 95);
+    --accent: oklch(52% 0.10 28);
+    --success: oklch(42% 0.07 145);
+    --font-display: "Literata", "Iowan Old Style", Charter, Georgia, "Songti SC", serif;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
+    /* 合域范围：暖棕色系对角渐变（奶油 → 焦糖 → 可可） */
+    --heyu-grad-a: #f4e4d4;
+    --heyu-grad-mid: #d2a575;
+    --heyu-grad-b: #7a4a2e;
+    --heyu-edge: #8b5c3c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: var(--font-body);
+    margin: 0; padding: 22px;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.65;
+  }
+  #matrix-export-root {
+    background: var(--bg);
+  }
+  h2 {
+    margin: 0 0 8px;
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    color: var(--fg);
+  }
+
+  /* 单行控制条 + 产品选择浮层（不占首屏大块面积） */
+  .chrome-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    font-size: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 78;
+    box-shadow: 0 8px 24px oklch(98% 0.004 95 / 0.85);
+  }
+  .chrome-bar .dock-toggle {
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 7px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--fg);
+    color: var(--surface);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: filter 0.12s ease;
+  }
+  .chrome-bar .dock-toggle:hover { filter: brightness(1.06); }
+  .chrome-bar .dock-toggle[aria-expanded="true"] {
+    outline: 2px solid oklch(58% 0.1 250);
+    outline-offset: 1px;
+  }
+  .chrome-bar .stat {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 9px;
+    background: var(--bg);
+    border-radius: 6px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    font-size: 11.5px;
+  }
+  .chrome-bar .stat .num { color: var(--accent); font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .chrome-bar .stat .num.muted-num { color: var(--muted); font-weight: 600; }
+  .chrome-bar .sep { width: 1px; height: 18px; background: var(--border); margin: 0 2px; }
+  .chrome-bar button.ghost {
+    padding: 6px 11px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 11.5px;
+    font-family: var(--font-body);
+    color: var(--fg);
+  }
+  .chrome-bar button.ghost:hover { background: var(--bg); }
+  .chrome-bar button:disabled {
+    opacity: 0.55;
+    cursor: wait;
+  }
+  .chrome-bar button.heyu-scope-toggle {
+    font-weight: 600;
+    flex-shrink: 0;
+    border-style: dashed;
+    border-color: color-mix(in srgb, var(--heyu-grad-a) 45%, var(--border));
+    color: #4a2c20;
+  }
+  .chrome-bar button.heyu-scope-toggle:hover {
+    border-style: solid;
+    border-color: color-mix(in srgb, var(--heyu-edge) 55%, var(--border));
+    background: color-mix(in srgb, var(--heyu-grad-mid) 22%, var(--surface));
+  }
+  .chrome-bar button.heyu-scope-toggle.heyu-toggle-on {
+    border-style: solid;
+    border-color: var(--heyu-edge);
+    color: #3d2418;
+    background: linear-gradient(135deg, var(--heyu-grad-a), var(--heyu-grad-mid), var(--heyu-grad-b));
+    box-shadow: 0 1px 10px rgb(122 74 46 / 0.32);
+  }
+  .chrome-bar .ph-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    align-items: center;
+    margin-left: auto;
+    justify-content: flex-end;
+    max-width: min(520px, 100%);
+    font-size: 10.5px;
+  }
+  .chrome-bar .ph-legend-empty {
+    color: var(--muted);
+    font-style: italic;
+  }
+  .chrome-bar .ph-leg-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 0;
+    color: var(--fg);
+    max-width: 100%;
+  }
+  .chrome-bar .ph-leg-line {
+    display: block;
+    flex-shrink: 0;
+    vertical-align: middle;
+    opacity: 0.98;
+  }
+  .chrome-bar .ph-swatch {
+    width: 11px;
+    height: 11px;
+    border-radius: 2px;
+    flex-shrink: 0;
+    background: var(--sw);
+    box-shadow: inset 0 0 0 1px oklch(70% 0.02 70 / 0.5);
+  }
+  .chrome-bar .ph-leg-txt {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 18ch;
+  }
+
+  /** 仅导出时挂载到 #matrix-export-root 底部：产品与图例对照表 */
+  .export-appendix {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    max-width: 100%;
+  }
+  .export-appendix-title {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--fg);
+    margin: 0 0 10px 0;
+  }
+  .export-appendix-table-wrap {
+    overflow-x: auto;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    padding: 0 10px 10px;
+  }
+  .export-appendix .ph-leg-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 0;
+    color: var(--fg);
+    max-width: 100%;
+  }
+  .export-appendix .ph-leg-line {
+    display: block;
+    flex-shrink: 0;
+    opacity: 0.98;
+  }
+  .export-appendix .ph-swatch {
+    width: 11px;
+    height: 11px;
+    border-radius: 2px;
+    flex-shrink: 0;
+    background: var(--sw);
+    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.12);
+  }
+  .export-appendix .ph-leg-txt {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 22ch;
+  }
+  .export-appendix-ex .export-appendix-leg {
+    display: inline-flex;
+    margin: 0 8px 6px 0;
+    vertical-align: middle;
+  }
+
+  .product-pop-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 85;
+    background: oklch(25% 0.02 70 / 0.1);
+    backdrop-filter: blur(0.5px);
+  }
+  .product-pop-backdrop.show { display: block; }
+
+  .product-popover {
+    display: none;
+    position: fixed;
+    z-index: 90;
+    left: 0;
+    top: 0;
+    width: min(1000px, calc(100vw - 24px));
+    max-height: min(72vh, 600px);
+    pointer-events: none;
+    transform-origin: top left;
+  }
+  .product-popover.show {
+    display: block;
+    pointer-events: auto;
+    animation: product-pop-fade 0.18s ease both;
+  }
+  .product-popover.flip-up {
+    transform-origin: bottom left;
+  }
+  @keyframes product-pop-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .product-popover-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow:
+      0 0 0 1px oklch(92% 0.006 95),
+      0 18px 50px oklch(25% 0.02 70 / 0.14);
+    max-height: inherit;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .product-popover-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px 16px;
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .product-pop-intro {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: min(72ch, calc(100% - 200px));
+  }
+  .product-popover-head h3 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--fg);
+  }
+  .product-popover-head p {
+    margin: 4px 0 0;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.5;
+    max-width: 100%;
+  }
+  .product-popover-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .product-popover-actions button {
+    font-family: var(--font-body);
+    font-size: 11.5px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    cursor: pointer;
+    color: var(--fg);
+  }
+  .product-popover-actions button.primary-done {
+    background: var(--accent);
+    color: var(--surface);
+    border-color: var(--accent);
+  }
+  .product-pop-grid {
+    padding: 0;
+    overflow: auto;
+    flex: 0 1 auto;
+    max-height: min(56vh, 520px);
+    min-height: 0;
+  }
+  .product-table-wrap {
+    padding: 0 12px 12px;
+    overflow-x: auto;
+  }
+  table.product-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    line-height: 1.4;
+    min-width: 620px;
+  }
+  table.product-table th,
+  table.product-table td {
+    border: 1px solid var(--border);
+    padding: 6px 8px;
+    text-align: left;
+    vertical-align: top;
+  }
+  table.product-table thead th {
+    background: oklch(96% 0.008 95);
+    font-weight: 600;
+    font-size: 10.5px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  table.product-table tbody tr:nth-child(even) td {
+    background: oklch(99.2% 0.003 95);
+  }
+  table.product-table .pt-cat {
+    font-weight: 600;
+    color: var(--fg);
+    white-space: nowrap;
+    max-width: 11em;
+  }
+  table.product-table .pt-form {
+    white-space: nowrap;
+    color: var(--muted);
+    font-size: 10px;
+  }
+  table.product-table .pt-core {
+    color: var(--fg);
+    max-width: 22ch;
+  }
+  table.product-table .pt-reps {
+    color: var(--muted);
+    font-size: 10px;
+    max-width: 28ch;
+  }
+  table.product-table .pt-ex {
+    white-space: normal;
+  }
+  table.product-table .pt-ex .ex-chip {
+    margin: 0 4px 4px 0;
+    vertical-align: middle;
+  }
+  button.ex-chip {
+    --ex-accent: oklch(55% 0.1 250);
+    font-family: var(--font-body);
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid oklch(82% 0.04 70);
+    background: var(--surface);
+    color: var(--fg);
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+    max-width: 100%;
+    text-align: left;
+  }
+  button.ex-chip:hover {
+    background: oklch(98% 0.01 95);
+    border-color: color-mix(in oklch, var(--ex-accent) 42%, oklch(82% 0.04 70));
+  }
+  button.ex-chip.active {
+    border-color: var(--ex-accent);
+    background: color-mix(in oklch, var(--ex-accent) 18%, var(--surface));
+    box-shadow: 0 0 0 1px color-mix(in oklch, var(--ex-accent) 32%, transparent);
+  }
+  button.ex-chip.active:hover {
+    background: color-mix(in oklch, var(--ex-accent) 24%, var(--surface));
+    border-color: var(--ex-accent);
+  }
+  button.ex-chip.ex-soon { opacity: 0.5; }
+
+  /* 外壳（边框）+ 内壳（滚动）：对齐 Excel 工作表面板式预览 */
+  .sheet-shell {
+    background: var(--surface);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    padding: 10px;
+  }
+  .matrix-scroll {
+    max-height: min(calc(100vh - 200px), 920px);
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    position: relative;
+  }
+  /* 表 + 覆盖范围 SVG 浮层（框线不挡字，接近 Excel 大框/虚线分层） */
+  .matrix-ph-wrap {
+    position: relative;
+    display: inline-block;
+    vertical-align: top;
+    min-width: 100%;
+  }
+  .heyu-scope-svg {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 3;
+    overflow: visible;
+  }
+  .heyu-scope-svg rect.heyu-frame {
+    filter: drop-shadow(0 2px 8px rgb(107 61 35 / 0.32))
+      drop-shadow(0 0 12px rgb(210 165 117 / 0.28));
+  }
+  /* 粗圆点描边：dashoffset 循环 → 点线沿矩形周界“走”，与渐变旋转呼应 */
+  .heyu-scope-svg rect.heyu-frame.heyu-frame-dots {
+    animation: heyu-dot-march 3.4s linear infinite;
+  }
+  @keyframes heyu-dot-march {
+    to { stroke-dashoffset: -26; }
+  }
+  .heyu-scope-svg text.heyu-banner {
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 800;
+    fill: #3d2418;
+    paint-order: stroke fill;
+    stroke: rgb(255 255 255 / 0.9);
+    stroke-width: 2.5px;
+    stroke-linejoin: round;
+  }
+  .ph-scope-svg {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 4;
+    overflow: visible;
+  }
+  td.cell.heyu-scope {
+    /* 整块对角渐变由 #heyu-scope-svg 单层绘制，格内保持平铺底色以便透出统一渐变 */
+    background: var(--surface) !important;
+  }
+  td.cell.heyu-scope:hover {
+    background: var(--surface) !important;
+    filter: brightness(1.03);
+  }
+  table#matrix {
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 11.5px;
+    min-width: 1160px;
+    width: 100%;
+    --sticky-head-top: 0px;
+    --col-a: 168px;
+    --col-b: 130px;
+    --col-c: 218px;
+  }
+  th, td {
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+    padding: 0;
+  }
+  thead .thead-banner th {
+    background: oklch(96% 0.008 95);
+    color: var(--fg);
+    text-align: left;
+    padding: 8px 12px;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    z-index: 24;
+  }
+  thead .thead-banner-sub th {
+    font-size: 11.5px;
+    font-family: var(--font-body);
+    font-weight: 400;
+    line-height: 1.65;
+    padding-bottom: 10px;
+  }
+  thead .thead-banner-title th {
+    top: 0;
+  }
+  thead .thead-banner-sub th {
+    top: 38px;
+  }
+  thead .thead-stage-row > th {
+    background: var(--fg); color: var(--surface);
+    text-align:center; padding:9px 6px;
+    font-size:12px; font-weight:600;
+    font-family: var(--font-display);
+    position: sticky;
+    top: var(--thead-stage-row3-top, 112px);
+    z-index: 22;
+  }
+  thead .thead-substage-row > th {
+    position: sticky;
+    top: var(--thead-stage-row4-top, 172px);
+    z-index: 21;
+    background: var(--fg);
+    color: var(--surface);
+  }
+  thead th.corner-stage {
+    text-align: left;
+    padding-left: 12px;
+    vertical-align: middle;
+    z-index: 30 !important;
+    background: var(--fg);
+    position: sticky;
+    left: 0;
+    top: var(--thead-stage-row3-top, 112px);
+    min-width: calc(var(--col-a) + var(--col-b) + var(--col-c));
+  }
+  thead th.sub-stage {
+    background: var(--fg);
+    color: var(--surface);
+    font-size:11px; font-weight:500;
+    padding:6px 4px;
+    min-width:112px;
+  }
+  thead th.sub-stage .sub-no { color: oklch(82% 0.06 28); font-weight:700; margin-right:2px; }
+  thead th.stage-col { min-width:120px; }
+  thead th .st-no { color: oklch(82% 0.06 28); font-weight:700; margin-right:3px; }
+  thead th .st-en { display:block; font-size:10px; font-weight:400; color: oklch(90% 0.008 95); margin-top:2px; font-family: var(--font-body); }
+
+  tbody td.pillar-cell {
+    color: var(--surface);
+    font-weight: 700;
+    padding: 9px 8px;
+    font-size: 11px;
+    line-height: 1.55;
+    font-family: var(--font-display);
+    background: oklch(23% 0.019 70);
+    border-left: 4px solid var(--accent);
+    vertical-align: top;
+    white-space: normal;
+    min-width: var(--col-a);
+    width: var(--col-a);
+    position: sticky;
+    left: 0;
+    top: var(--frozen-head-height, 0px);
+    z-index: 8;
+    box-shadow: 1px 0 0 var(--border);
+  }
+  tbody td.sub-pillar-cell {
+    font-weight: 600;
+    font-size: 11px;
+    line-height: 1.45;
+    padding: 8px 6px;
+    vertical-align: top;
+    white-space: normal;
+    min-width: var(--col-b);
+    width: var(--col-b);
+    position: sticky;
+    left: var(--col-a);
+    top: var(--frozen-head-height, 0px);
+    z-index: 7;
+    border-right: 1px solid var(--border);
+    font-family: var(--font-body);
+    background: oklch(96% 0.012 95);
+    color: var(--fg);
+  }
+  .cat-2 td.pillar-cell { border-left-color: oklch(48% 0.08 250); }
+  .cat-3 td.pillar-cell { border-left-color: oklch(48% 0.07 145); }
+  .cat-4 td.pillar-cell { border-left-color: oklch(52% 0.04 70); }
+  .cat-5 td.pillar-cell { border-left-color: oklch(54% 0.11 35); }
+  .cat-lifestyle td.pillar-cell {
+    border-left-color: oklch(52% 0.09 310);
+    background: oklch(26% 0.022 310);
+  }
+  .sub-lifestyle {
+    background: oklch(97% 0.018 310) !important;
+    color: oklch(38% 0.07 310) !important;
+  }
+  .sub-cash         { background: oklch(97% 0.015 95) !important; color: oklch(35% 0.03 70) !important; }
+  .sub-public       { background: oklch(97% 0.012 250) !important; color: oklch(38% 0.05 250) !important; }
+  .sub-private      { background: oklch(97% 0.014 290) !important; color: oklch(38% 0.06 290) !important; }
+  .sub-semi         { background: oklch(97% 0.012 260) !important; color: oklch(38% 0.055 260) !important; }
+  .sub-emerging     { background: oklch(97% 0.018 310) !important; color: oklch(38% 0.07 310) !important; }
+  .sub-real         { background: oklch(97% 0.015 95) !important; color: oklch(35% 0.03 70) !important; }
+  .sub-strategic    { background: oklch(97% 0.02 28) !important; color: oklch(38% 0.07 28) !important; }
+  .sub-planning     { background: oklch(97% 0.016 145) !important; color: oklch(36% 0.05 145) !important; }
+  .sub-risk         { background: oklch(97% 0.018 25) !important; color: oklch(40% 0.09 25) !important; }
+  .sub-governance   { background: oklch(97% 0.018 35) !important; color: oklch(38% 0.07 35) !important; }
+  .sub-philanthropy { background: oklch(97% 0.016 310) !important; color: oklch(38% 0.065 310) !important; }
+  .sub-operations   { background: oklch(97% 0.008 70) !important; color: oklch(36% 0.022 70) !important; }
+
+  td.row-label-col {
+    min-width: var(--col-c);
+    width: var(--col-c);
+    padding: 4px 8px 4px 14px;
+    font-size:11.5px; font-weight:500;
+    background: var(--bg);
+    position: sticky;
+    left: calc(var(--col-a) + var(--col-b));
+    top: var(--frozen-head-height, 0px);
+    z-index: 6;
+    border-right: 2px solid var(--border);
+    font-family: var(--font-body);
+  }
+  td.row-label-col .row-en {
+    display:block; font-size:9.5px; color: var(--muted); font-weight:400; margin-top:2px;
+  }
+
+  td.cell {
+    min-width:115px; height:46px;
+    cursor: default;
+    position:relative;
+    transition: background 0.12s ease;
+    padding: 3px 5px 6px;
+    text-align:center;
+    font-size:10px;
+    color: oklch(38% 0.018 70);
+    line-height:1.35;
+    user-select:none;
+    font-family: var(--font-body);
+  }
+  td.cell.ph-cell.empty-cell::before {
+    color: oklch(42% 0.02 70);
+  }
+  td.cell:hover:not(.ph-cell):not(.heyu-scope) {
+    background: oklch(98.5% 0.006 95) !important;
+  }
+  td.cell.empty-cell {
+    background-image: repeating-linear-gradient(45deg, transparent, transparent 6px, oklch(92% 0.004 95) 6px, oklch(92% 0.004 95) 7px);
+    cursor:not-allowed;
+  }
+  td.cell.empty-cell::before { content:"—"; color: var(--muted); }
+
+  .modal-mask {
+    display:none;
+    position:fixed; inset:0;
+    background: oklch(25% 0.02 70 / 0.42);
+    z-index:100;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+  }
+  .modal-mask.show { display:flex; }
+  .modal {
+    background: var(--surface); border-radius:8px;
+    width:100%; max-width:800px;
+    max-height:85vh;
+    display:flex; flex-direction:column;
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 0 var(--border), 0 18px 48px oklch(25% 0.02 70 / 0.12);
+  }
+  .modal-header {
+    padding:14px 18px; border-bottom:1px solid var(--border);
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .modal-header h3 { margin:0; font-size:15px; font-family: var(--font-display); font-weight:600; color: var(--fg); }
+  .modal-header .close-x {
+    background:none; border:none; font-size:20px; cursor:pointer; color: var(--muted);
+    width:28px; height:28px; border-radius:4px;
+  }
+  .modal-header .close-x:hover { background: var(--bg); color: var(--fg); }
+  .modal-body { flex:1; overflow:auto; padding:14px 18px; }
+  .modal-body textarea {
+    width:100%; min-height:320px;
+    font-family: ui-monospace, "IBM Plex Mono", Menlo, monospace;
+    font-size:11.5px;
+    padding:10px; border:1px solid var(--border); border-radius:6px;
+    resize:vertical;
+    white-space: pre;
+    background: var(--bg);
+    color: var(--fg);
+  }
+  .modal-footer {
+    padding:10px 18px; border-top:1px solid var(--border);
+    display:flex; gap:8px; justify-content:flex-end; align-items:center;
+  }
+  .modal-footer .hint { margin-right:auto; font-size:11.5px; color: var(--muted); }
+  .modal-footer button {
+    padding:6px 14px; border:1px solid var(--border); background: var(--surface);
+    border-radius:6px; cursor:pointer; font-size:12.5px;
+    font-family: var(--font-body); color: var(--fg);
+  }
+  .modal-footer button:hover { background: var(--bg); }
+  .modal-footer button.primary {
+    background: var(--accent); color: var(--surface); border-color: var(--accent);
+  }
+  .modal-footer button.primary:hover { filter: brightness(0.96); }
+  .toast {
+    position:fixed; top:20px; left:50%; transform:translateX(-50%);
+    background: var(--fg); color: var(--surface);
+    padding:9px 20px; border-radius:6px;
+    font-size:12.5px; z-index:200;
+    font-family: var(--font-body);
+    opacity:0; transition:opacity 0.22s ease;
+    pointer-events:none;
+    border: 1px solid oklch(28% 0.02 70);
+  }
+  .toast.show { opacity:1; }
+</style>
+</head>
+<body>
+<div id="matrix-export-root">
+
+<h2 id="page-title">家办业务覆盖对比图</h2>
+
+<div class="chrome-bar">
+  <button type="button" class="dock-toggle" id="btn-open-products" aria-expanded="false" aria-controls="product-popover">产品与例子</button>
+  <div class="stat">已选 <span class="num" id="product-sel-count">0</span></div>
+  <div class="sep"></div>
+  <button type="button" class="ghost" onclick="clearProductSelection()">清空</button>
+  <button type="button" class="ghost heyu-scope-toggle" id="btn-toggle-heyu-scope" aria-pressed="false" title="显示或隐藏合域重点：③ 分析研判（3.1～3.4）× 地产/基建、大宗、收藏、牌照与资源网络">合域范围</button>
+  <button type="button" class="ghost" id="btn-export-matrix-png" title="导出 PNG：含标题、图例、矩阵覆盖层，以及底部「产品与图例」对照表">导出图片</button>
+  <div class="ph-legend" id="ph-legend"><span class="ph-legend-empty">点选例子后在此显示图例</span></div>
+</div>
+
+<div class="sheet-shell">
+<div class="matrix-scroll" id="matrix-scroll">
+<div class="matrix-ph-wrap" id="matrix-ph-wrap">
+<table id="matrix">
+  <thead>
+    <tr class="thead-banner thead-banner-title"><th colspan="12" id="thead-sheet-title"></th></tr>
+    <tr class="thead-banner thead-banner-sub"><th colspan="12" id="thead-sheet-subtitle"></th></tr>
+    <tr class="thead-stage-row">
+      <th rowspan="2" colspan="3" class="corner-stage stage-col">业务 \ 阶段</th>
+      <th rowspan="2" class="stage-col"><span class="st-no">①</span>战略与配置<span class="st-en">Strategy &amp; Allocation</span></th>
+      <th rowspan="2" class="stage-col"><span class="st-no">②</span>机会发掘<span class="st-en">Sourcing</span></th>
+      <th colspan="4" class="analysis-group"><span class="st-no">③</span>分析研判 Analysis</th>
+      <th rowspan="2" class="stage-col"><span class="st-no">④</span>执行<span class="st-en">Execution</span></th>
+      <th rowspan="2" class="stage-col"><span class="st-no">⑤</span>投后管理<span class="st-en">Management &amp; Reporting</span></th>
+      <th rowspan="2" class="stage-col"><span class="st-no">⑥</span>退出与再配置<span class="st-en">Exit</span></th>
+    </tr>
+    <tr class="thead-substage-row">
+      <th class="sub-stage"><span class="sub-no">3.1</span>市场调研<span class="st-en">Market Research</span></th>
+      <th class="sub-stage"><span class="sub-no">3.2</span>战略与可行性<span class="st-en">Strategic &amp; Feasibility</span></th>
+      <th class="sub-stage"><span class="sub-no">3.3</span>背景调查<span class="st-en">Background Check</span></th>
+      <th class="sub-stage"><span class="sub-no">3.4</span>尽职调查<span class="st-en">Due Diligence</span></th>
+    </tr>
+  </thead>
+  <tbody id="body"></tbody>
+</table>
+<svg id="heyu-scope-svg" class="heyu-scope-svg" aria-hidden="true"></svg>
+<svg id="ph-scope-svg" class="ph-scope-svg" aria-hidden="true"></svg>
+</div>
+</div>
+</div>
+
+</div><!-- /matrix-export-root -->
+
+<div id="product-pop-backdrop" class="product-pop-backdrop" aria-hidden="true"></div>
+<div id="product-popover" class="product-popover" role="dialog" aria-modal="true" aria-labelledby="product-pop-title" aria-hidden="true">
+  <div class="product-popover-panel">
+    <div class="product-popover-head">
+      <div class="product-pop-intro">
+        <h3 id="product-pop-title">市面常见家办相关产品</h3>
+        <p>点选下方「例子」，即可在矩阵中查看对应覆盖范围。</p>
+      </div>
+      <div class="product-popover-actions">
+        <button type="button" id="btn-clear-in-pop">清空选择</button>
+        <button type="button" class="primary-done" id="btn-close-product-pop">完成</button>
+      </div>
+    </div>
+    <div id="product-rail-body" class="product-pop-grid"></div>
+  </div>
+</div>
+
+<div class="modal-mask" id="modal-mask">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-title">预览</h3>
+      <button class="close-x" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <textarea id="modal-content" spellcheck="false"></textarea>
+    </div>
+    <div class="modal-footer">
+      <div class="hint" id="modal-hint">可直接复制内容使用</div>
+      <button onclick="copyModal()">📋 复制</button>
+      <button class="primary" id="modal-download-btn" onclick="downloadModal()">⬇️ 下载文件</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="coverage_data.js"></script>
+<script>
+const N_COLS = 9;
+
+function escHtml(s){
+  return String(s ?? '')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+function nlToBr(s){
+  return escHtml(s).replace(/\n/g,'<br>');
+}
+
+function syncStickyOffsets(){
+  const table = document.getElementById('matrix');
+  if(!table) return;
+  const thead = table.querySelector('thead');
+  const b1 = table.querySelector('.thead-banner-title');
+  const b2 = table.querySelector('.thead-banner-sub');
+  const r3 = table.querySelector('.thead-stage-row');
+  const hBanner = (b1 && b1.offsetHeight || 0) + (b2 && b2.offsetHeight || 0);
+  const hR3 = r3 && r3.offsetHeight || 0;
+  table.style.setProperty('--thead-stage-row3-top', hBanner + 'px');
+  table.style.setProperty('--thead-stage-row4-top', (hBanner + hR3) + 'px');
+  table.style.setProperty('--frozen-head-height', (thead && thead.offsetHeight || 0) + 'px');
+  scheduleHeyuScopeRefresh();
+  schedulePhOverlayRefresh();
+}
+
+const tbody = document.getElementById('body');
+const dataRows = [];
+let rowIdxCounter = 0;
+
+(function renderFromCoverage(){
+  const blocks = (typeof COVERAGE_DATA !== 'undefined' && COVERAGE_DATA.blocks) ? COVERAGE_DATA.blocks : [];
+  const titleEl = document.getElementById('thead-sheet-title');
+  const subEl = document.getElementById('thead-sheet-subtitle');
+  if(titleEl && COVERAGE_DATA.title) titleEl.textContent = COVERAGE_DATA.title;
+  if(subEl && COVERAGE_DATA.subtitle) subEl.textContent = COVERAGE_DATA.subtitle;
+
+  blocks.forEach(block=>{
+    const pillarCls = block.pillarCls || '';
+    const pillarRowSpan = block.segments.reduce((n, seg)=> n + seg.rows.length, 0);
+    let pillarInserted = false;
+
+    block.segments.forEach(seg=>{
+      const subRowSpan = seg.rows.length;
+      const catLabel = (seg.subLabel || '').split('\n')[0].trim();
+      let subInserted = false;
+
+      seg.rows.forEach(rowData=>{
+        const tr = document.createElement('tr');
+        tr.className = pillarCls;
+
+        let html = '';
+        if(!pillarInserted){
+          html += `<td class="pillar-cell" rowspan="${pillarRowSpan}" style="white-space:pre-line">${nlToBr(block.pillarText || '')}</td>`;
+          pillarInserted = true;
+        }
+        if(!subInserted){
+          const subCls = seg.subCls ? String(seg.subCls) : '';
+          html += `<td class="sub-pillar-cell ${subCls}" rowspan="${subRowSpan}" style="white-space:pre-line">${nlToBr(seg.subLabel || '')}</td>`;
+          subInserted = true;
+        }
+
+        const rowId = rowIdxCounter++;
+        const cells = rowData.cells || [];
+        dataRows.push({
+          id: rowId,
+          label: rowData.label,
+          en: rowData.en || '',
+          cat: catLabel || ''
+        });
+
+        html += `<td class="row-label-col">
+          ${escHtml(rowData.label)}${rowData.en ? `<span class="row-en">${escHtml(rowData.en)}</span>` : ''}
+        </td>`;
+
+        for(let i = 0; i < N_COLS; i++){
+          const c = cells[i];
+          if(c === null || c === undefined){
+            html += `<td class="cell empty-cell" data-row="${rowId}" data-col="${i}"></td>`;
+          } else {
+            html += `<td class="cell" data-row="${rowId}" data-col="${i}">${escHtml(c)}</td>`;
+          }
+        }
+        tr.innerHTML = html;
+        tbody.appendChild(tr);
+      });
+    });
+  });
+})();
+
+/** 市面家办相关产品（例子可点击）；coverage 将陆续补齐 */
+const FO_PRODUCT_RAIL = [
+  { category:'MFO', form:'服务', coreValue:'综合受托决策', reps:'Aspiriant、HB Wealth、Bessemer、Rockefeller、银行系 MFO', examples:[
+    { id:'bank-mfo', label:'银行系 MFO', implemented:true }
+  ]},
+  { category:'私人银行/信托', form:'服务', coreValue:'资产持有+综合金融', reps:'JP Morgan PB、Goldman PWM、UBS、Northern Trust、BNY、Pictet', examples:[
+    { id:'jpm-pb', label:'JP Morgan PB', implemented:true }
+  ]},
+  { category:'专业服务（法律 / 税务 / 会计）', form:'服务', coreValue:'单点专业', reps:'Withers、Baker McKenzie、四大、Arnold & Porter', examples:[
+    { id:'consulting', label:'咨询', implemented:true }
+  ]},
+  { category:'中后台外包', form:'服务', coreValue:'流程外包', reps:'IQ-EQ、Apex、Citco、Intertrust、Gen II', examples:[
+    { id:'iq-eq', label:'IQ-EQ', implemented:true }
+  ]},
+  { category:'垂直专项', form:'服务', coreValue:'单点解决方案', reps:'Simple (AndSimple)、Trusted Family、Nines、TIFIN Give、Trustworthy、Veltracon', examples:[
+    { id:'andsimple', label:'AndSimple', implemented:true },
+    { id:'trusted-family', label:'Trusted Family（家族治理门户）', implemented:true },
+    { id:'nines', label:'Nines（家政与豪宅管理）', implemented:true }
+  ]},
+  { category:'资产准入平台', form:'平台', coreValue:'标准化交易通道', reps:'iCapital、CAIS、Moonfare、Titanbay、Arch', examples:[
+    { id:'icapital', label:'iCapital', implemented:true }
+  ]},
+  { category:'软件/SaaS', form:'软件', coreValue:'账务+报告', reps:'Addepar、Masttro、Copia、Etops、Eton、FundCount、Dynamo', examples:[
+    { id:'copia', label:'Copia', implemented:true }
+  ]}
+];
+
+/** 阶段列 0～8 ↔ ①、②、③.1～③.4、④、⑤、⑥；④⑤ 为执行与投后，下标 6、7 */
+const COL_EXEC = 6;
+const COL_PM = 7;
+const JPM_PB_EXEC_PM = [COL_EXEC, COL_PM];
+/** iCapital：仅 ④ 执行（列下标 6） */
+const ICAPITAL_COL_EXEC = [COL_EXEC];
+/** Copia：仅 ⑤ 投后管理（列下标 7） */
+const COPIA_COL_PM_ONLY = [COL_PM];
+/** 咨询：仅 ③.1 市场调研、③.2 战略与可行性（列下标 2、3） */
+const CONSULTING_COLS_31_32 = [2, 3];
+/** AndSimple：①—③.2（列下标 0—3） */
+const ANDSIMPLE_COLS_THROUGH_32 = [0, 1, 2, 3];
+
+/** rowLabel 对应矩阵「业务」列中文 label（与 coverage_data 一致）；支持 covers[] 多行，或单行 rowLabel+cols */
+const PRODUCT_COVERAGE = {
+  'bank-mfo': {
+    hint:'22 条业务线 × 全阶段（①—⑥ 九格）',
+    covers:[
+      { rowLabel:'家族治理', cols:'all' },
+      { rowLabel:'传承规划', cols:'all' },
+      { rowLabel:'下一代培养', cols:'all' },
+      { rowLabel:'现金 / 存款', cols:'all' },
+      { rowLabel:'货币基金', cols:'all' },
+      { rowLabel:'外汇 / 跨境', cols:'all' },
+      { rowLabel:'公开股票 / ETF', cols:'all' },
+      { rowLabel:'固定收益 / 债券', cols:'all' },
+      { rowLabel:'公募基金 / FOF', cols:'all' },
+      { rowLabel:'对冲基金', cols:'all' },
+      { rowLabel:'结构化产品', cols:'all' },
+      { rowLabel:'私募股权', cols:'all' },
+      { rowLabel:'私募信贷', cols:'all' },
+      { rowLabel:'BTC / RWA', cols:'all' },
+      { rowLabel:'地产 / 基建', cols:'all' },
+      { rowLabel:'大宗商品', cols:'all' },
+      { rowLabel:'收藏品', cols:'all' },
+      { rowLabel:'财富规划', cols:'all' },
+      { rowLabel:'税务筹划', cols:'all' },
+      { rowLabel:'法律与持有架构', cols:'all' },
+      { rowLabel:'保险与风险管理', cols:'all' },
+      { rowLabel:'慈善 / 公益', cols:'all' },
+      { rowLabel:'影响力投资', cols:'all' }
+    ]
+  },
+  'jpm-pb': {
+    hint:'现金/货基/外汇（全阶段）；公开股票—收藏共 11 行（④⑤）',
+    covers:[
+      { rowLabel:'现金 / 存款', cols:'all' },
+      { rowLabel:'货币基金', cols:'all' },
+      { rowLabel:'外汇 / 跨境', cols:'all' },
+      { rowLabel:'公开股票 / ETF', cols:JPM_PB_EXEC_PM },
+      { rowLabel:'固定收益 / 债券', cols:JPM_PB_EXEC_PM },
+      { rowLabel:'公募基金 / FOF', cols:JPM_PB_EXEC_PM },
+      { rowLabel:'对冲基金', cols:JPM_PB_EXEC_PM },
+      { rowLabel:'结构化产品', cols:JPM_PB_EXEC_PM },
+      { rowLabel:'私募股权', cols:JPM_PB_EXEC_PM },
+      { rowLabel:'私募信贷', cols:JPM_PB_EXEC_PM },
+      { rowLabel:'BTC / RWA', cols:JPM_PB_EXEC_PM },
+      { rowLabel:'地产 / 基建', cols:JPM_PB_EXEC_PM },
+      { rowLabel:'大宗商品', cols:JPM_PB_EXEC_PM },
+      { rowLabel:'收藏品', cols:JPM_PB_EXEC_PM }
+    ]
+  },
+  'trusted-family': { rowLabel:'家族治理', cols:'all' },
+  'consulting': {
+    hint:'现金—影响力共 20 行 × ③.1 / ③.2（市场调研、战略与可行性）',
+    covers:[
+      { rowLabel:'现金 / 存款', cols:CONSULTING_COLS_31_32 },
+      { rowLabel:'货币基金', cols:CONSULTING_COLS_31_32 },
+      { rowLabel:'外汇 / 跨境', cols:CONSULTING_COLS_31_32 },
+      { rowLabel:'公开股票 / ETF', cols:CONSULTING_COLS_31_32 },
+      { rowLabel:'固定收益 / 债券', cols:CONSULTING_COLS_31_32 },
+      { rowLabel:'公募基金 / FOF', cols:CONSULTING_COLS_31_32 },
+      { rowLabel:'对冲基金', cols:CONSULTING_COLS_31_32 },
+      { rowLabel:'结构化产品', cols:CONSULTING_COLS_31_32 },
+      { rowLabel:'私募股权', cols:CONSULTING_COLS_31_32 },
+      { rowLabel:'私募信贷', cols:CONSULTING_COLS_31_32 },
+      { rowLabel:'BTC / RWA', cols:CONSULTING_COLS_31_32 },
+      { rowLabel:'地产 / 基建', cols:CONSULTING_COLS_31_32 },
+      { rowLabel:'大宗商品', cols:CONSULTING_COLS_31_32 },
+      { rowLabel:'收藏品', cols:CONSULTING_COLS_31_32 },
+      { rowLabel:'财富规划', cols:CONSULTING_COLS_31_32 },
+      { rowLabel:'税务筹划', cols:CONSULTING_COLS_31_32 },
+      { rowLabel:'法律与持有架构', cols:CONSULTING_COLS_31_32 },
+      { rowLabel:'保险与风险管理', cols:CONSULTING_COLS_31_32 },
+      { rowLabel:'慈善 / 公益', cols:CONSULTING_COLS_31_32 },
+      { rowLabel:'影响力投资', cols:CONSULTING_COLS_31_32 }
+    ]
+  },
+  'iq-eq': {
+    hint:'Ⅴ 运营与基础设施 5 行 × 全阶段（①—⑥）',
+    covers:[
+      { rowLabel:'合并净值报告', cols:'all' },
+      { rowLabel:'文档 / 档案管理', cols:'all' },
+      { rowLabel:'IT / 网络安全', cols:'all' },
+      { rowLabel:'家办合规与监管申报', cols:'all' },
+      { rowLabel:'数据平台', cols:'all' }
+    ]
+  },
+  'andsimple': {
+    hint:'Ⅰ 治理 3 行 + Ⅴ 运营 5 行 × ①—③.2',
+    covers:[
+      { rowLabel:'家族治理', cols:ANDSIMPLE_COLS_THROUGH_32 },
+      { rowLabel:'传承规划', cols:ANDSIMPLE_COLS_THROUGH_32 },
+      { rowLabel:'下一代培养', cols:ANDSIMPLE_COLS_THROUGH_32 },
+      { rowLabel:'合并净值报告', cols:ANDSIMPLE_COLS_THROUGH_32 },
+      { rowLabel:'文档 / 档案管理', cols:ANDSIMPLE_COLS_THROUGH_32 },
+      { rowLabel:'IT / 网络安全', cols:ANDSIMPLE_COLS_THROUGH_32 },
+      { rowLabel:'家办合规与监管申报', cols:ANDSIMPLE_COLS_THROUGH_32 },
+      { rowLabel:'数据平台', cols:ANDSIMPLE_COLS_THROUGH_32 }
+    ]
+  },
+  'nines': {
+    hint:'Ⅵ 物业与庄园管理 + 家政人员与人力 × 全阶段',
+    covers:[
+      { rowLabel:'物业与庄园管理', cols:'all' },
+      { rowLabel:'家政人员与人力', cols:'all' }
+    ]
+  },
+  'icapital': {
+    hint:'公开—数字资产 8 行 × ④ 执行',
+    covers:[
+      { rowLabel:'公开股票 / ETF', cols:ICAPITAL_COL_EXEC },
+      { rowLabel:'固定收益 / 债券', cols:ICAPITAL_COL_EXEC },
+      { rowLabel:'公募基金 / FOF', cols:ICAPITAL_COL_EXEC },
+      { rowLabel:'对冲基金', cols:ICAPITAL_COL_EXEC },
+      { rowLabel:'结构化产品', cols:ICAPITAL_COL_EXEC },
+      { rowLabel:'私募股权', cols:ICAPITAL_COL_EXEC },
+      { rowLabel:'私募信贷', cols:ICAPITAL_COL_EXEC },
+      { rowLabel:'BTC / RWA', cols:ICAPITAL_COL_EXEC }
+    ]
+  },
+  'copia': {
+    hint:'现金—收藏 14 行 + 合并净值报告 × ⑤ 投后管理',
+    covers:[
+      { rowLabel:'现金 / 存款', cols:COPIA_COL_PM_ONLY },
+      { rowLabel:'货币基金', cols:COPIA_COL_PM_ONLY },
+      { rowLabel:'外汇 / 跨境', cols:COPIA_COL_PM_ONLY },
+      { rowLabel:'公开股票 / ETF', cols:COPIA_COL_PM_ONLY },
+      { rowLabel:'固定收益 / 债券', cols:COPIA_COL_PM_ONLY },
+      { rowLabel:'公募基金 / FOF', cols:COPIA_COL_PM_ONLY },
+      { rowLabel:'对冲基金', cols:COPIA_COL_PM_ONLY },
+      { rowLabel:'结构化产品', cols:COPIA_COL_PM_ONLY },
+      { rowLabel:'私募股权', cols:COPIA_COL_PM_ONLY },
+      { rowLabel:'私募信贷', cols:COPIA_COL_PM_ONLY },
+      { rowLabel:'BTC / RWA', cols:COPIA_COL_PM_ONLY },
+      { rowLabel:'地产 / 基建', cols:COPIA_COL_PM_ONLY },
+      { rowLabel:'大宗商品', cols:COPIA_COL_PM_ONLY },
+      { rowLabel:'收藏品', cols:COPIA_COL_PM_ONLY },
+      { rowLabel:'合并净值报告', cols:COPIA_COL_PM_ONLY }
+    ]
+  }
+};
+
+const activeProductIds = new Set();
+/** 合域矩阵高亮层：默认关闭，由工具栏「合域范围」切换 */
+let heyuScopeLayerOn = false;
+
+/** 每个例子 id 固定一色（与勾选顺序无关）。SVG fill/stroke 须用 sRGB，html-to-image 对 oklch 属性常丢色 */
+const FIXED_EXAMPLE_COLORS = {
+  'bank-mfo':       '#757575',
+  'jpm-pb':         '#2d62c9',
+  'consulting':     '#0f7f65',
+  'iq-eq':          '#2f86b5',
+  'andsimple':      '#c9850a',
+  'trusted-family': '#8b7ec4',
+  'nines':          '#7f9630',
+  'icapital':       '#dc6424',
+  'copia':          '#1f8f72'
+};
+
+const PH_STAGE_ABBR = ['①','②','③.1','③.2','③.3','③.4','④','⑤','⑥'];
+
+function hashHueFromId(id){
+  let h = 0;
+  for(let i = 0; i < id.length; i++) h = ((h << 5) - h) + id.charCodeAt(i);
+  return Math.abs(h) % 360;
+}
+
+function fixedExampleColor(pid){
+  if(FIXED_EXAMPLE_COLORS[pid]) return FIXED_EXAMPLE_COLORS[pid];
+  const hue = hashHueFromId(pid);
+  return `hsl(${hue}, 52%, 46%)`;
+}
+
+function selectedIdsInCatalogOrder(){
+  const out = [];
+  FO_PRODUCT_RAIL.forEach(line=>{
+    line.examples.forEach(ex=>{
+      if(activeProductIds.has(ex.id)) out.push(ex.id);
+    });
+  });
+  return out;
+}
+
+function categoryForExampleId(id){
+  for(let i = 0; i < FO_PRODUCT_RAIL.length; i++){
+    if(FO_PRODUCT_RAIL[i].examples.some(e=>e.id === id)) return FO_PRODUCT_RAIL[i].category;
+  }
+  return '';
+}
+
+function exampleLabelById(id){
+  for(let li = 0; li < FO_PRODUCT_RAIL.length; li++){
+    const ex = FO_PRODUCT_RAIL[li].examples.find(e=>e.id === id);
+    if(ex) return ex.label;
+  }
+  return id;
+}
+
+function colsHuman(cols){
+  if(cols === 'all') return '①—⑥ 全阶段';
+  const arr = (cols || []).map(c=>PH_STAGE_ABBR[c] || String(c));
+  return arr.join('、');
+}
+
+function coveragePartsFromSpec(spec){
+  if(!spec) return [];
+  if(Array.isArray(spec.covers) && spec.covers.length) return spec.covers;
+  if(spec.rowLabel) return [{ rowLabel: spec.rowLabel, cols: spec.cols }];
+  return [];
+}
+
+function coverageHintForProduct(pid){
+  const spec = PRODUCT_COVERAGE[pid];
+  if(!spec) return '';
+  if(typeof spec.hint === 'string' && spec.hint.trim()) return spec.hint.trim();
+  const parts = coveragePartsFromSpec(spec);
+  if(!parts.length) return '';
+  if(parts.length === 1) return `${parts[0].rowLabel}（${colsHuman(parts[0].cols)}）`;
+  const allFull = parts.every(p=>p.cols === 'all');
+  if(allFull) return `${parts.length} 条业务（${colsHuman('all')}）`;
+  return `${parts.length} 条业务组合（阶段各异）`;
+}
+
+function cellCoverageTitle(ids){
+  return ids.map(pid=>{
+    const cat = categoryForExampleId(pid);
+    const lab = exampleLabelById(pid);
+    const cov = coverageHintForProduct(pid);
+    return `${cat} · ${lab} → ${cov}`;
+  }).join('\n');
+}
+
+function rowIdByLabel(label){
+  const r = dataRows.find(x => x.label === label);
+  return r ? r.id : null;
+}
+
+/** 合域重点：③ 分析研判（列 2—5 = 3.1~3.4）× 实物与战略资源相关四行（与 coverage_data 行名一致） */
+const HEYU_SCOPE_ROW_LABELS = ['地产 / 基建','大宗商品','收藏品','牌照 / 配额 / 网络 / ...'];
+const HEYU_SCOPE_COL_0 = 2;
+const HEYU_SCOPE_COL_1 = 5;
+
+function heyuScopeCells(){
+  const out = [];
+  for(const label of HEYU_SCOPE_ROW_LABELS){
+    const rid = rowIdByLabel(label);
+    if(rid === null) continue;
+    for(let c = HEYU_SCOPE_COL_0; c <= HEYU_SCOPE_COL_1; c++){
+      const td = document.querySelector(`td.cell[data-row="${rid}"][data-col="${c}"]`);
+      if(td && !td.classList.contains('empty-cell')) out.push(td);
+    }
+  }
+  return out;
+}
+
+function markHeyuScopeCells(){
+  document.querySelectorAll('td.cell.heyu-scope').forEach(td=>td.classList.remove('heyu-scope'));
+  if(!heyuScopeLayerOn) return;
+  heyuScopeCells().forEach(td=>td.classList.add('heyu-scope'));
+}
+
+function setHeyuScopeLayer(on){
+  heyuScopeLayerOn = !!on;
+  markHeyuScopeCells();
+  scheduleHeyuScopeRefresh();
+  const btn = document.getElementById('btn-toggle-heyu-scope');
+  if(btn){
+    btn.setAttribute('aria-pressed', heyuScopeLayerOn ? 'true' : 'false');
+    btn.classList.toggle('heyu-toggle-on', heyuScopeLayerOn);
+  }
+}
+
+function scheduleHeyuScopeRefresh(){
+  requestAnimationFrame(()=>{ refreshHeyuScopeOverlay(); });
+}
+
+function refreshHeyuScopeOverlay(){
+  const wrap = document.getElementById('matrix-ph-wrap');
+  const svg = document.getElementById('heyu-scope-svg');
+  if(!wrap || !svg) return;
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+  if(!heyuScopeLayerOn) return;
+
+  const cells = heyuScopeCells();
+  if(!cells.length) return;
+
+  const w = Math.max(1, wrap.clientWidth);
+  const h = Math.max(1, wrap.clientHeight);
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  svg.setAttribute('width', String(w));
+  svg.setAttribute('height', String(h));
+
+  const NS = 'http://www.w3.org/2000/svg';
+  const defs = document.createElementNS(NS, 'defs');
+  const fillGrad = document.createElementNS(NS, 'linearGradient');
+  fillGrad.setAttribute('id', 'heyu-fill-grad');
+  fillGrad.setAttribute('gradientUnits', 'objectBoundingBox');
+  fillGrad.setAttribute('x1', '0');
+  fillGrad.setAttribute('y1', '0');
+  fillGrad.setAttribute('x2', '1');
+  fillGrad.setAttribute('y2', '1');
+  [['0%', '#fdf5eb'], ['18%', '#edd9bf'], ['42%', '#d9b088'], ['68%', '#a67447'], ['100%', '#6b3f26']].forEach(([off, col])=>{
+    const s = document.createElementNS(NS, 'stop');
+    s.setAttribute('offset', off);
+    s.setAttribute('stop-color', col);
+    fillGrad.appendChild(s);
+  });
+  const fillRot = document.createElementNS(NS, 'animateTransform');
+  fillRot.setAttribute('attributeName', 'gradientTransform');
+  fillRot.setAttribute('type', 'rotate');
+  fillRot.setAttribute('from', '0 0.5 0.5');
+  fillRot.setAttribute('to', '360 0.5 0.5');
+  fillRot.setAttribute('dur', '28s');
+  fillRot.setAttribute('repeatCount', 'indefinite');
+  fillGrad.appendChild(fillRot);
+  defs.appendChild(fillGrad);
+  svg.appendChild(defs);
+
+  let runs = rowRunsFromCells(cells);
+  runs = mergeRunsVertical(runs);
+  const inset = 0.75;
+
+  runs.forEach(run=>{
+    const box = rectForRowColSpan(wrap, run.row, run.rowEnd, run.c0, run.c1);
+    if(!box || box.width < 2 || box.height < 2) return;
+    const x = box.left + inset;
+    const y = box.top + inset;
+    const rw = box.width - 2 * inset;
+    const rh = box.height - 2 * inset;
+    if(rw < 4 || rh < 4) return;
+
+    const fillR = document.createElementNS(NS, 'rect');
+    fillR.setAttribute('x', String(x));
+    fillR.setAttribute('y', String(y));
+    fillR.setAttribute('width', String(rw));
+    fillR.setAttribute('height', String(rh));
+    fillR.setAttribute('rx', '5');
+    fillR.setAttribute('fill', 'url(#heyu-fill-grad)');
+    fillR.setAttribute('fill-opacity', '0.7');
+    svg.appendChild(fillR);
+
+    const frame = document.createElementNS(NS, 'rect');
+    frame.setAttribute('x', String(x));
+    frame.setAttribute('y', String(y));
+    frame.setAttribute('width', String(rw));
+    frame.setAttribute('height', String(rh));
+    frame.setAttribute('rx', '5');
+    frame.setAttribute('fill', 'none');
+    frame.setAttribute('stroke', '#6e4028');
+    frame.setAttribute('stroke-width', '4.5');
+    frame.setAttribute('stroke-linecap', 'round');
+    frame.setAttribute('stroke-linejoin', 'round');
+    frame.setAttribute('stroke-dasharray', '5 21');
+    frame.setAttribute('stroke-dashoffset', '0');
+    frame.setAttribute('vector-effect', 'non-scaling-stroke');
+    frame.setAttribute('class', 'heyu-frame heyu-frame-dots');
+    svg.appendChild(frame);
+
+    const banner = document.createElementNS(NS, 'text');
+    banner.setAttribute('x', String(x + 7));
+    banner.setAttribute('y', String(y + 16));
+    banner.setAttribute('class', 'heyu-banner');
+    banner.textContent = '合域';
+    svg.appendChild(banner);
+  });
+}
+
+function cellsForProduct(exampleId){
+  const spec = PRODUCT_COVERAGE[exampleId];
+  if(!spec) return [];
+  const parts = coveragePartsFromSpec(spec);
+  const seen = new Set();
+  const out = [];
+  for(const p of parts){
+    const rid = rowIdByLabel(p.rowLabel);
+    if(rid === null) continue;
+    const cols = p.cols === 'all' ? [...Array(N_COLS).keys()] : (p.cols || []);
+    for(const c of cols){
+      const key = `${rid},${c}`;
+      if(seen.has(key)) continue;
+      seen.add(key);
+      const td = document.querySelector(`td.cell[data-row="${rid}"][data-col="${c}"]`);
+      if(td) out.push(td);
+    }
+  }
+  return out;
+}
+
+/** 同一行内合并连续列 → { row, c0, c1 } */
+function rowRunsFromCells(cells){
+  const byRow = new Map();
+  cells.forEach(td=>{
+    const row = td.getAttribute('data-row');
+    const col = +td.getAttribute('data-col');
+    if(!byRow.has(row)) byRow.set(row, []);
+    byRow.get(row).push(col);
+  });
+  const runs = [];
+  byRow.forEach((cols, row)=>{
+    cols.sort((a,b)=>a-b);
+    let s = cols[0], p = cols[0];
+    for(let i = 1; i < cols.length; i++){
+      if(cols[i] === p + 1){
+        p = cols[i];
+      } else {
+        runs.push({ row, c0: s, c1: p });
+        s = p = cols[i];
+      }
+    }
+    runs.push({ row, c0: s, c1: p });
+  });
+  return runs;
+}
+
+/** 相同列区间、行号连续 → 纵向合并为大矩形 */
+function mergeRunsVertical(runs){
+  if(!runs.length) return [];
+  const sorted = [...runs].sort((a,b)=>{
+    if(a.c0 !== b.c0) return a.c0 - b.c0;
+    if(a.c1 !== b.c1) return a.c1 - b.c1;
+    return (+a.row) - (+b.row);
+  });
+  const out = [];
+  let cur = {
+    row: sorted[0].row,
+    rowEnd: sorted[0].row,
+    c0: sorted[0].c0,
+    c1: sorted[0].c1,
+    ck: `${sorted[0].c0},${sorted[0].c1}`
+  };
+  for(let i = 1; i < sorted.length; i++){
+    const r = sorted[i];
+    const ck = `${r.c0},${r.c1}`;
+    if(ck === cur.ck && (+r.row === +cur.rowEnd + 1)){
+      cur.rowEnd = r.row;
+    } else {
+      out.push(cur);
+      cur = { row: r.row, rowEnd: r.row, c0: r.c0, c1: r.c1, ck };
+    }
+  }
+  out.push(cur);
+  return out;
+}
+
+function cellRectRelWrap(td, wrap){
+  const g = td.getBoundingClientRect();
+  const w = wrap.getBoundingClientRect();
+  return {
+    left: g.left - w.left + wrap.scrollLeft,
+    top: g.top - w.top + wrap.scrollTop,
+    width: g.width,
+    height: g.height
+  };
+}
+
+function unionRects(rects){
+  let L = Infinity, T = Infinity, R = -Infinity, B = -Infinity;
+  for(const r of rects){
+    L = Math.min(L, r.left);
+    T = Math.min(T, r.top);
+    R = Math.max(R, r.left + r.width);
+    B = Math.max(B, r.top + r.height);
+  }
+  if(!isFinite(L)) return null;
+  return { left: L, top: T, width: R - L, height: B - T };
+}
+
+function rectForRowColSpan(wrap, row, rowEnd, c0, c1){
+  const rects = [];
+  for(let r = +row; r <= +rowEnd; r++){
+    for(let c = c0; c <= c1; c++){
+      const td = document.querySelector(`td.cell[data-row="${r}"][data-col="${c}"]`);
+      if(td) rects.push(cellRectRelWrap(td, wrap));
+    }
+  }
+  return rects.length ? unionRects(rects) : null;
+}
+
+function rectDashForOverlayIndex(i){
+  const m = i % 3;
+  if(m === 0) return '';
+  if(m === 1) return '7 5';
+  return '3 4';
+}
+
+/** 产品在 FO_PRODUCT_RAIL 展平顺序中的下标（与是否勾选无关）→ 线型固定 */
+function productRailExampleIndex(pid){
+  let i = 0;
+  for(let li = 0; li < FO_PRODUCT_RAIL.length; li++){
+    const exs = FO_PRODUCT_RAIL[li].examples;
+    for(let ei = 0; ei < exs.length; ei++){
+      if(exs[ei].id === pid) return i;
+      i++;
+    }
+  }
+  return 0;
+}
+
+function overlayDashStyleForPid(pid){
+  return rectDashForOverlayIndex(productRailExampleIndex(pid));
+}
+
+function phLegendStrokeSvgHtml(pid){
+  const stroke = fixedExampleColor(pid);
+  const dash = overlayDashStyleForPid(pid);
+  const dashAttr = dash ? ` stroke-dasharray="${escHtml(dash)}"` : '';
+  const s = escHtml(stroke);
+  return `<svg class="ph-leg-line" width="22" height="8" viewBox="0 0 22 8" aria-hidden="true"><line x1="1" y1="4" x2="21" y2="4" fill="none" stroke="${s}" stroke-width="2" stroke-linecap="round"${dashAttr}/></svg>`;
+}
+
+/** 覆盖少 → 排序靠前（与浮层顶层一致，tooltip 先写更窄、更在上层的例） */
+function comparePidByCoverageAsc(a, b){
+  const ca = cellsForProduct(a).length;
+  const cb = cellsForProduct(b).length;
+  if(ca !== cb) return ca - cb;
+  return a.localeCompare(b);
+}
+
+/** 浮层绘制顺序：Trusted Family 始终在底层（最外框、最不挡字）；其余按格子数降序叠在内层 */
+function overlayDrawOrder(catalogOrder){
+  const counts = new Map(catalogOrder.map(pid=>[pid, cellsForProduct(pid).length]));
+  const hasTf = catalogOrder.includes('trusted-family');
+  const rest = catalogOrder.filter(pid=>pid !== 'trusted-family');
+  const sortedRest = [...rest].sort((a,b)=>{
+    const d = counts.get(b) - counts.get(a);
+    if(d !== 0) return d;
+    return catalogOrder.indexOf(a) - catalogOrder.indexOf(b);
+  });
+  return hasTf ? ['trusted-family', ...sortedRest] : sortedRest;
+}
+
+function refreshPhScopeOverlay(){
+  const wrap = document.getElementById('matrix-ph-wrap');
+  const svg = document.getElementById('ph-scope-svg');
+  if(!wrap || !svg) return;
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+
+  const catalogOrder = selectedIdsInCatalogOrder();
+  const w = Math.max(1, wrap.clientWidth);
+  const h = Math.max(1, wrap.clientHeight);
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  svg.setAttribute('width', String(w));
+  svg.setAttribute('height', String(h));
+
+  if(!catalogOrder.length) return;
+
+  const drawOrder = overlayDrawOrder(catalogOrder);
+  const nDraw = drawOrder.length;
+  const NS = 'http://www.w3.org/2000/svg';
+
+  drawOrder.forEach((pid, stackIdx)=>{
+    const cells = cellsForProduct(pid);
+    if(!cells.length) return;
+    let runs = rowRunsFromCells(cells);
+    runs = mergeRunsVertical(runs);
+    const insetBase = 1.5 + stackIdx * 2.5;
+    /** TF：额外内缩（更靠里的壳）；MFO / IQ-EQ：额外外扩（更靠外的壳） */
+    const inset = Math.max(
+      1,
+      insetBase
+        + (pid === 'trusted-family' ? 3 : 0)
+        - (pid === 'bank-mfo' || pid === 'iq-eq' ? 3 : 0)
+    );
+    const stroke = fixedExampleColor(pid);
+    const dash = overlayDashStyleForPid(pid);
+    const fillOpacityBase = nDraw === 1
+      ? '0.14'
+      : String(0.09 + (stackIdx / (nDraw - 1)) * 0.1);
+    const strokeOpacity = nDraw === 1
+      ? '0.92'
+      : String(0.84 + (stackIdx / Math.max(1, nDraw - 1)) * 0.16);
+    const strokeW = nDraw === 1 ? '2' : String(1.85 + stackIdx * 0.22);
+
+    runs.forEach(run=>{
+      const box = rectForRowColSpan(wrap, run.row, run.rowEnd, run.c0, run.c1);
+      if(!box || box.width < 2 || box.height < 2) return;
+      const x = box.left + inset;
+      const y = box.top + inset;
+      const rw = box.width - 2 * inset;
+      const rh = box.height - 2 * inset;
+      if(rw < 4 || rh < 4) return;
+
+      const rect = document.createElementNS(NS, 'rect');
+      rect.setAttribute('x', String(x));
+      rect.setAttribute('y', String(y));
+      rect.setAttribute('width', String(rw));
+      rect.setAttribute('height', String(rh));
+      rect.setAttribute('rx', '3');
+      rect.setAttribute('fill', stroke);
+      rect.setAttribute('fill-opacity', fillOpacityBase);
+      rect.setAttribute('stroke', stroke);
+      rect.setAttribute('stroke-width', strokeW);
+      rect.setAttribute('stroke-opacity', strokeOpacity);
+      rect.setAttribute('paint-order', 'stroke fill');
+      rect.setAttribute('vector-effect', 'non-scaling-stroke');
+      rect.setAttribute('stroke-linejoin', 'round');
+      if(dash) rect.setAttribute('stroke-dasharray', dash);
+      svg.appendChild(rect);
+    });
+  });
+}
+
+function schedulePhOverlayRefresh(){
+  requestAnimationFrame(()=>{ refreshPhScopeOverlay(); });
+}
+
+function applyProductHighlights(){
+  document.querySelectorAll('td.cell').forEach(td=>{
+    td.classList.remove('ph-cell');
+    td.style.boxShadow = '';
+    td.style.backgroundColor = '';
+    td.removeAttribute('data-ph-ids');
+    td.removeAttribute('title');
+  });
+
+  const catalogOrder = selectedIdsInCatalogOrder();
+  const cellToPids = new Map();
+
+  activeProductIds.forEach(pid=>{
+    cellsForProduct(pid).forEach(td=>{
+      const k = `${td.getAttribute('data-row')},${td.getAttribute('data-col')}`;
+      if(!cellToPids.has(k)) cellToPids.set(k, new Set());
+      cellToPids.get(k).add(pid);
+    });
+  });
+
+  cellToPids.forEach((pidSet, k)=>{
+    const [row, col] = k.split(',');
+    const td = document.querySelector(`td.cell[data-row="${row}"][data-col="${col}"]`);
+    if(!td) return;
+    const ids = [...pidSet].sort(comparePidByCoverageAsc);
+    td.setAttribute('data-ph-ids', ids.join(' '));
+    td.classList.add('ph-cell');
+    td.setAttribute('title', cellCoverageTitle(ids));
+  });
+
+  const nSel = activeProductIds.size;
+  const elS = document.getElementById('product-sel-count');
+  if(elS) elS.textContent = nSel;
+  updatePhLegend(catalogOrder);
+  schedulePhOverlayRefresh();
+}
+
+function phLegendItemHtml(pid){
+  const c = fixedExampleColor(pid);
+  const lab = escHtml(exampleLabelById(pid));
+  const dash = overlayDashStyleForPid(pid);
+  const lineDesc = dash === '' ? '实线' : (dash === '7 5' ? '长虚线' : '密虚线');
+  const tip = escHtml(`${categoryForExampleId(pid)} · ${coverageHintForProduct(pid)} · 线型固定：${lineDesc}`);
+  return `<span class="ph-leg-item" title="${tip}">${phLegendStrokeSvgHtml(pid)}<i class="ph-swatch" style="--sw:${c}"></i><span class="ph-leg-txt">${lab}</span></span>`;
+}
+
+function updatePhLegend(catalogOrder){
+  const host = document.getElementById('ph-legend');
+  if(!host) return;
+  if(!catalogOrder.length){
+    host.innerHTML = '<span class="ph-legend-empty">点选例子后在此显示图例</span>';
+    return;
+  }
+  host.innerHTML = catalogOrder.map(pid=>phLegendItemHtml(pid)).join('');
+}
+
+function syncChipActiveStates(){
+  document.querySelectorAll('button.ex-chip[data-ex-id]').forEach(btn=>{
+    btn.classList.toggle('active', activeProductIds.has(btn.getAttribute('data-ex-id')));
+  });
+}
+
+function toggleProduct(exampleId, implemented){
+  if(!implemented){
+    toast('该例子的矩阵映射尚未配置');
+    return;
+  }
+  if(activeProductIds.has(exampleId)){
+    activeProductIds.delete(exampleId);
+  } else {
+    activeProductIds.add(exampleId);
+  }
+  syncChipActiveStates();
+  applyProductHighlights();
+}
+
+function buildExportProductAppendix(){
+  const wrap = document.createElement('div');
+  wrap.id = 'matrix-export-appendix';
+  wrap.className = 'export-appendix';
+  wrap.setAttribute('aria-hidden', 'true');
+  const rows = FO_PRODUCT_RAIL.map(line=>{
+    const legs = line.examples.map(ex=>`<span class="export-appendix-leg">${phLegendItemHtml(ex.id)}</span>`).join('');
+    return `<tr>
+      <td class="pt-cat">${escHtml(line.category)}</td>
+      <td class="pt-form">${escHtml(line.form)}</td>
+      <td class="pt-core">${escHtml(line.coreValue)}</td>
+      <td class="pt-reps">${escHtml(line.reps)}</td>
+      <td class="pt-ex export-appendix-ex">${legs}</td>
+    </tr>`;
+  }).join('');
+  wrap.innerHTML =
+    '<h3 class="export-appendix-title">市面常见家办相关产品（图例与矩阵中线型、色块一致）</h3>' +
+    '<div class="export-appendix-table-wrap">' +
+    '<table class="product-table export-appendix-table"><thead><tr>' +
+    '<th>类别</th><th>形态</th><th>核心价值</th><th>代表产品</th><th>例子（图例）</th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+  return wrap;
+}
+
+function clearProductSelection(){
+  activeProductIds.clear();
+  syncChipActiveStates();
+  applyProductHighlights();
+}
+
+function buildProductRail(){
+  const host = document.getElementById('product-rail-body');
+  if(!host) return;
+  const rows = FO_PRODUCT_RAIL.map(line=>{
+    const repsTitle = escHtml(line.reps);
+    const chips = line.examples.map(ex=>{
+      const impl = !!ex.implemented && PRODUCT_COVERAGE[ex.id];
+      const cls = ['ex-chip', impl ? '' : 'ex-soon'].filter(Boolean).join(' ');
+      const accent = fixedExampleColor(ex.id);
+      return `<button type="button" class="${cls}" data-ex-id="${escHtml(ex.id)}" data-impl="${impl?'1':'0'}" style="--ex-accent:${accent}">${escHtml(ex.label)}</button>`;
+    }).join(' ');
+    return `<tr>
+      <td class="pt-cat" title="${repsTitle}">${escHtml(line.category)}</td>
+      <td class="pt-form">${escHtml(line.form)}</td>
+      <td class="pt-core">${escHtml(line.coreValue)}</td>
+      <td class="pt-reps" title="${repsTitle}">${escHtml(line.reps)}</td>
+      <td class="pt-ex">${chips}</td>
+    </tr>`;
+  }).join('');
+  host.innerHTML =
+    '<div class="product-table-wrap"><table class="product-table"><thead><tr>' +
+    '<th>类别</th><th>形态</th><th>核心价值</th><th>代表产品</th><th>例子（点击）</th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+  host.querySelectorAll('button.ex-chip').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const id = btn.getAttribute('data-ex-id');
+      const impl = btn.getAttribute('data-impl') === '1';
+      toggleProduct(id, impl);
+    });
+  });
+  syncChipActiveStates();
+  applyProductHighlights();
+  if(productPopEl() && productPopEl().classList.contains('show')){
+    requestAnimationFrame(()=>{
+      positionProductPanel();
+      requestAnimationFrame(positionProductPanel);
+    });
+  }
+}
+
+function productPopEl(){ return document.getElementById('product-popover'); }
+function productBackdropEl(){ return document.getElementById('product-pop-backdrop'); }
+
+let productLayoutBound = false;
+function onProductPanelLayout(){
+  if(productPopEl() && productPopEl().classList.contains('show')) positionProductPanel();
+}
+function bindProductPanelLayout(){
+  if(productLayoutBound) return;
+  window.addEventListener('resize', onProductPanelLayout);
+  window.addEventListener('scroll', onProductPanelLayout, true);
+  productLayoutBound = true;
+}
+function unbindProductPanelLayout(){
+  if(!productLayoutBound) return;
+  window.removeEventListener('resize', onProductPanelLayout);
+  window.removeEventListener('scroll', onProductPanelLayout, true);
+  productLayoutBound = false;
+}
+
+function positionProductPanel(){
+  const btn = document.getElementById('btn-open-products');
+  const pop = productPopEl();
+  if(!btn || !pop || !pop.classList.contains('show')) return;
+
+  const r = btn.getBoundingClientRect();
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const pad = 12;
+  const gap = 8;
+
+  let w = Math.min(1000, Math.max(320, vw - pad * 2));
+  let left = Math.round(r.left);
+  if(left + w > vw - pad) left = Math.max(pad, vw - pad - w);
+  if(left < pad) left = pad;
+
+  pop.classList.remove('flip-up');
+  pop.style.width = w + 'px';
+  pop.style.left = left + 'px';
+  pop.style.top = Math.round(r.bottom + gap) + 'px';
+
+  const panel = pop.querySelector('.product-popover-panel');
+  const baseMax = Math.min(Math.round(vh * 0.72), 600);
+  pop.style.maxHeight = baseMax + 'px';
+  if(panel) panel.style.maxHeight = baseMax + 'px';
+
+  void pop.offsetHeight;
+  const ph = pop.getBoundingClientRect().height;
+  const bottom = r.bottom + gap + ph;
+  const roomAbove = r.top - pad;
+  const roomBelow = vh - r.bottom - pad - gap;
+
+  if(bottom > vh - pad && roomAbove > roomBelow && r.top - gap - ph >= pad){
+    pop.classList.add('flip-up');
+    pop.style.top = Math.round(r.top - gap - ph) + 'px';
+  } else if(bottom > vh - pad){
+    const fit = Math.max(200, vh - pad - Math.round(r.bottom + gap) - 4);
+    pop.style.maxHeight = fit + 'px';
+    if(panel) panel.style.maxHeight = fit + 'px';
+  }
+}
+
+function setProductPanelOpen(open){
+  const p = productPopEl();
+  const b = productBackdropEl();
+  const t = document.getElementById('btn-open-products');
+  if(!p || !b) return;
+  p.classList.toggle('show', open);
+  b.classList.toggle('show', open);
+  p.setAttribute('aria-hidden', open ? 'false' : 'true');
+  b.setAttribute('aria-hidden', open ? 'false' : 'true');
+  if(t) t.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if(open){
+    bindProductPanelLayout();
+    requestAnimationFrame(()=>{
+      positionProductPanel();
+      requestAnimationFrame(positionProductPanel);
+    });
+  } else {
+    unbindProductPanelLayout();
+    p.style.left = '';
+    p.style.top = '';
+    p.style.width = '';
+    p.style.maxHeight = '';
+    p.classList.remove('flip-up');
+    const panel = p.querySelector('.product-popover-panel');
+    if(panel) panel.style.maxHeight = '';
+  }
+}
+
+function closeProductPanel(){ setProductPanelOpen(false); }
+
+let _htmlToImageLoadPromise = null;
+/**
+ * html-to-image：用 SVG foreignObject 走浏览器原生排版，表格上的绝对定位 SVG 叠层能进 PNG。
+ * html2canvas / html2canvas-pro 对「表 + 兄弟 SVG 浮层」常整块漏画，故不再用作主路径。
+ */
+function loadHtmlToImage(){
+  if(_htmlToImageLoadPromise) return _htmlToImageLoadPromise;
+  _htmlToImageLoadPromise = new Promise((resolve, reject)=>{
+    if(typeof window.htmlToImage === 'object' && typeof window.htmlToImage.toBlob === 'function' && window.__matrixHtmlToImage){
+      resolve();
+      return;
+    }
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js';
+    s.async = true;
+    s.onload = ()=>{
+      window.__matrixHtmlToImage = true;
+      if(!window.htmlToImage || typeof window.htmlToImage.toBlob !== 'function'){
+        _htmlToImageLoadPromise = null;
+        reject(new Error('导出组件未挂载'));
+        return;
+      }
+      resolve();
+    };
+    s.onerror = ()=>{
+      _htmlToImageLoadPromise = null;
+      reject(new Error('无法加载导出组件'));
+    };
+    document.head.appendChild(s);
+  });
+  return _htmlToImageLoadPromise;
+}
+
+function padExport2(n){
+  return String(n).padStart(2, '0');
+}
+
+/** 导出前：把含 oklch 的 presentation 属性换成浏览器已解析的颜色（须在 removeAttribute 之前读 getComputedStyle） */
+function rewriteOklchPaintForExport(rootEl){
+  const backups = [];
+  if(!rootEl) return backups;
+  rootEl.querySelectorAll('*').forEach(el=>{
+    const attrs = [...el.attributes];
+    attrs.forEach(attr=>{
+      const val = attr.value;
+      if(!val || (!val.includes('oklch') && !val.includes('OKLCH'))) return;
+      const n = attr.name;
+      let clearStyleProp;
+      let styleReplaced;
+      if(n === 'fill' || n === 'stroke'){
+        const cs = getComputedStyle(el);
+        let v = n === 'fill' ? cs.fill : cs.stroke;
+        v = String(v || '');
+        if(!v || v === 'none' || v.toLowerCase().includes('oklch')) v = n === 'fill' ? '#9a9a9a' : '#444444';
+        backups.push({ el, name: n, value: val, clearStyleProp: n });
+        el.removeAttribute(n);
+        el.style.setProperty(n, v);
+      } else if(n === 'style'){
+        const cs = getComputedStyle(el);
+        const bg = cs.backgroundColor;
+        backups.push({ el, name: n, value: val, styleReplaced: true });
+        el.removeAttribute(n);
+        el.style.cssText = '';
+        if(bg && !bg.toLowerCase().includes('oklch')) el.style.backgroundColor = bg;
+        else el.style.backgroundColor = '#c8c8c8';
+        el.style.width = cs.width;
+        el.style.height = cs.height;
+        el.style.display = cs.display;
+        el.style.borderRadius = cs.borderRadius;
+      } else {
+        backups.push({ el, name: n, value: val });
+        el.removeAttribute(n);
+      }
+    });
+  });
+  return backups;
+}
+
+/** 部分栅格化路径对 defs 内 SMIL + url(#…) 不稳；导出时暂时摘掉，拍完再挂上 */
+function stripSvgSmilForExport(rootEl){
+  const backups = [];
+  if(!rootEl) return backups;
+  const nodes = [...rootEl.querySelectorAll('svg animate, svg animateTransform, svg set')];
+  nodes.forEach(node=>{
+    const parent = node.parentNode;
+    if(!parent) return;
+    backups.push({ parent, before: node.nextSibling, node });
+    parent.removeChild(node);
+  });
+  return backups;
+}
+
+function restoreSvgSmilForExport(backups){
+  if(!backups || !backups.length) return;
+  backups.forEach(b=>{
+    if(!b.parent || !b.node) return;
+    try{
+      b.parent.insertBefore(b.node, b.before || null);
+    } catch(_){ /* 父节点已换则跳过 */ }
+  });
+}
+
+/** inline-block 包裹层下绝对定位 SVG 在部分栅格化路径中叠层丢失，导出时改为 block 并刷新叠层 */
+function pushMatrixPhWrapExportLayout(){
+  const wrap = document.getElementById('matrix-ph-wrap');
+  if(!wrap) return null;
+  return {
+    el: wrap,
+    display: wrap.style.display,
+    verticalAlign: wrap.style.verticalAlign
+  };
+}
+
+function applyMatrixPhWrapExportLayout(){
+  const wrap = document.getElementById('matrix-ph-wrap');
+  if(!wrap) return;
+  wrap.style.setProperty('display', 'block', 'important');
+  wrap.style.setProperty('vertical-align', 'top', 'important');
+}
+
+function restoreMatrixPhWrapExportLayout(snap){
+  if(!snap || !snap.el) return;
+  if(snap.display) snap.el.style.display = snap.display;
+  else snap.el.style.removeProperty('display');
+  if(snap.verticalAlign) snap.el.style.verticalAlign = snap.verticalAlign;
+  else snap.el.style.removeProperty('vertical-align');
+}
+
+function restoreOklchPaintBackup(backups){
+  if(!backups || !backups.length) return;
+  backups.forEach(b=>{
+    if(!b.el || !b.el.isConnected) return;
+    if(b.clearStyleProp) b.el.style.removeProperty(b.clearStyleProp);
+    if(b.styleReplaced) b.el.removeAttribute('style');
+    b.el.setAttribute(b.name, b.value);
+  });
+}
+
+function restoreMatrixScrollExportStyles(sc, snap){
+  if(!sc || !snap) return;
+  sc.style.overflow = snap.overflow;
+  sc.style.maxHeight = snap.maxHeight;
+  sc.style.height = snap.height;
+  sc.style.width = snap.width;
+  if(!snap.overflow) sc.style.removeProperty('overflow');
+  if(!snap.maxHeight) sc.style.removeProperty('maxHeight');
+  if(!snap.height) sc.style.removeProperty('height');
+  if(!snap.width) sc.style.removeProperty('width');
+}
+
+function exportBodyBackgroundSafe(){
+  const v = getComputedStyle(document.body).backgroundColor;
+  if(!v || String(v).toLowerCase().includes('oklch(')) return '#f7f6f3';
+  return v;
+}
+
+async function exportMatrixPng(){
+  const root = document.getElementById('matrix-export-root');
+  const sc = document.getElementById('matrix-scroll');
+  const btn = document.getElementById('btn-export-matrix-png');
+  if(!root || !sc) return;
+  if(productPopEl()?.classList.contains('show')) closeProductPanel();
+  if(btn) btn.disabled = true;
+  toast('正在生成图片…');
+  let snap = null;
+  let wrapSnap = null;
+  let paintBackup = [];
+  let smilBackup = [];
+  let exportAppendixEl = null;
+  try{
+    await loadHtmlToImage();
+    if(!window.htmlToImage || typeof window.htmlToImage.toBlob !== 'function') throw new Error('导出组件未就绪');
+    sc.scrollLeft = 0;
+    sc.scrollTop = 0;
+    await new Promise(r=>requestAnimationFrame(r));
+    const fullH = sc.scrollHeight;
+    const fullW = sc.scrollWidth;
+    snap = {
+      overflow: sc.style.overflow,
+      maxHeight: sc.style.maxHeight,
+      height: sc.style.height,
+      width: sc.style.width
+    };
+    sc.style.overflow = 'visible';
+    sc.style.maxHeight = 'none';
+    sc.style.height = `${fullH}px`;
+    sc.style.width = `${fullW}px`;
+    schedulePhOverlayRefresh();
+    scheduleHeyuScopeRefresh();
+    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+    wrapSnap = pushMatrixPhWrapExportLayout();
+    applyMatrixPhWrapExportLayout();
+    schedulePhOverlayRefresh();
+    scheduleHeyuScopeRefresh();
+    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+    exportAppendixEl = buildExportProductAppendix();
+    root.appendChild(exportAppendixEl);
+    await new Promise(r=>requestAnimationFrame(r));
+    paintBackup = rewriteOklchPaintForExport(root);
+    smilBackup = stripSvgSmilForExport(root);
+    await new Promise(r=>requestAnimationFrame(r));
+    const bg = exportBodyBackgroundSafe();
+    const shotOpts = { cacheBust: true, pixelRatio: 2, backgroundColor: bg };
+    let blob;
+    try{
+      blob = await window.htmlToImage.toBlob(root, shotOpts);
+    } catch(err1){
+      console.warn('导出快照重试（skipFonts）', err1);
+      blob = await window.htmlToImage.toBlob(root, { ...shotOpts, skipFonts: true });
+    }
+    restoreMatrixScrollExportStyles(sc, snap);
+    snap = null;
+    if(!blob){
+      toast('导出失败');
+      throw new Error('未生成图片数据');
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const d = new Date();
+    a.download = `家办业务覆盖对比图-${d.getFullYear()}${padExport2(d.getMonth() + 1)}${padExport2(d.getDate())}-${padExport2(d.getHours())}${padExport2(d.getMinutes())}.png`;
+    a.href = url;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 2000);
+    toast('已导出 PNG');
+  } catch(e){
+    console.error(e);
+    toast('导出失败：' + (e && e.message ? e.message : String(e)));
+    restoreMatrixScrollExportStyles(sc, snap);
+  } finally{
+    if(exportAppendixEl){
+      exportAppendixEl.remove();
+      exportAppendixEl = null;
+    }
+    restoreMatrixPhWrapExportLayout(wrapSnap);
+    restoreSvgSmilForExport(smilBackup);
+    restoreOklchPaintBackup(paintBackup);
+    syncStickyOffsets();
+    schedulePhOverlayRefresh();
+    scheduleHeyuScopeRefresh();
+    if(btn) btn.disabled = false;
+  }
+}
+
+function toggleProductPanel(){
+  const p = productPopEl();
+  setProductPanelOpen(!p || !p.classList.contains('show'));
+}
+
+buildProductRail();
+
+document.getElementById('btn-open-products')?.addEventListener('click', toggleProductPanel);
+document.getElementById('product-pop-backdrop')?.addEventListener('click', closeProductPanel);
+document.getElementById('btn-close-product-pop')?.addEventListener('click', closeProductPanel);
+document.getElementById('btn-clear-in-pop')?.addEventListener('click', ()=>{ clearProductSelection(); });
+
+document.addEventListener('keydown', e=>{
+  if(e.key === 'Escape' && productPopEl()?.classList.contains('show')){
+    closeProductPanel();
+  }
+});
+syncStickyOffsets();
+window.addEventListener('resize', syncStickyOffsets);
+requestAnimationFrame(()=>{ syncStickyOffsets(); });
+
+document.getElementById('btn-toggle-heyu-scope')?.addEventListener('click', ()=>{
+  setHeyuScopeLayer(!heyuScopeLayerOn);
+});
+
+document.getElementById('btn-export-matrix-png')?.addEventListener('click', ()=>{
+  exportMatrixPng();
+});
+
+document.getElementById('matrix-scroll')?.addEventListener('scroll', ()=>{
+  scheduleHeyuScopeRefresh();
+  schedulePhOverlayRefresh();
+}, { passive: true });
+
+let currentDownload = null;
+function openModal(title, displayText, filename, mime, downloadText){
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-content').value = displayText;
+  currentDownload = {
+    filename, mime,
+    text: downloadText !== undefined ? downloadText : displayText
+  };
+  document.getElementById('modal-mask').classList.add('show');
+}
+function closeModal(){
+  document.getElementById('modal-mask').classList.remove('show');
+}
+function copyModal(){
+  const ta = document.getElementById('modal-content');
+  ta.select();
+  try {
+    const ok = document.execCommand('copy');
+    toast(ok ? '📋 已复制到剪贴板' : '复制失败，请手动选择复制');
+  } catch(e){ toast('复制失败，请手动选择复制'); }
+  ta.setSelectionRange(0,0);
+}
+function downloadModal(){
+  if(!currentDownload) return;
+  try {
+    const blob = new Blob([currentDownload.text], { type: currentDownload.mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = currentDownload.filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 500);
+    toast('⬇️ 已下载 ' + currentDownload.filename);
+  } catch(e){
+    toast('下载被拦截，请用"复制"按钮');
+  }
+}
+document.getElementById('modal-mask').addEventListener('click', e=>{
+  if(e.target.id==='modal-mask') closeModal();
+});
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+</script>
+
+
+
+</body></html>
