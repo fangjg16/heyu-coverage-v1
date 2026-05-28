@@ -132,13 +132,16 @@
     box-shadow: 0 1px 10px rgb(122 74 46 / 0.32);
   }
   .chrome-bar .ph-legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 12px;
+    display: grid;
+    grid-template-columns: repeat(5, max-content);
+    column-gap: 10px;
+    row-gap: 4px;
     align-items: center;
     margin-left: auto;
-    justify-content: flex-end;
-    max-width: min(520px, 100%);
+    justify-content: end;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100%;
     font-size: 10.5px;
   }
   .chrome-bar .ph-legend-empty {
@@ -171,7 +174,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    max-width: 18ch;
+    max-width: 15ch;
   }
 
   /** 仅导出时挂载到 #matrix-export-root 底部：产品与图例对照表 */
@@ -945,8 +948,9 @@ const FO_PRODUCT_RAIL = [
   { category:'资产准入平台', form:'平台', coreValue:'标准化交易通道', reps:'iCapital、CAIS、Moonfare、Titanbay、Arch', examples:[
     { id:'icapital', label:'iCapital', implemented:true }
   ]},
-  { category:'软件/SaaS', form:'软件', coreValue:'账务+报告', reps:'Addepar、Masttro、Copia、Etops、Eton、FundCount、Dynamo', examples:[
-    { id:'copia', label:'Copia', implemented:true }
+  { category:'软件/SaaS', form:'软件', coreValue:'组合报告 / 私募 Deal OS', reps:'Addepar、Masttro、Copia、Inyo、Etops、Eton、FundCount、Dynamo', examples:[
+    { id:'copia', label:'Copia', implemented:true },
+    { id:'inyo', label:'Inyo', implemented:true }
   ]}
 ];
 
@@ -962,6 +966,8 @@ const COPIA_COL_PM_ONLY = [COL_PM];
 const CONSULTING_COLS_31_32 = [2, 3];
 /** AndSimple：①—③.2（列下标 0—3） */
 const ANDSIMPLE_COLS_THROUGH_32 = [0, 1, 2, 3];
+/** Inyo：②—④ 机会发掘—执行（列下标 1—6）；不含 ⑤ 投后、⑥ 退出 */
+const INYO_COLS_SOURCING_THROUGH_EXEC = [1, 2, 3, 4, 5, 6];
 
 /** rowLabel 对应矩阵「业务」列中文 label（与 coverage_data 一致）；支持 covers[] 多行，或单行 rowLabel+cols */
 const PRODUCT_COVERAGE = {
@@ -1100,6 +1106,14 @@ const PRODUCT_COVERAGE = {
       { rowLabel:'收藏品', cols:COPIA_COL_PM_ONLY },
       { rowLabel:'合并净值报告', cols:COPIA_COL_PM_ONLY }
     ]
+  },
+  'inyo': {
+    hint:'私募股权、私募信贷、地产/基建 × ②—④（机会发掘—执行）',
+    covers:[
+      { rowLabel:'私募股权', cols:INYO_COLS_SOURCING_THROUGH_EXEC },
+      { rowLabel:'私募信贷', cols:INYO_COLS_SOURCING_THROUGH_EXEC },
+      { rowLabel:'地产 / 基建', cols:INYO_COLS_SOURCING_THROUGH_EXEC }
+    ]
   }
 };
 
@@ -1117,7 +1131,8 @@ const FIXED_EXAMPLE_COLORS = {
   'trusted-family': '#8b7ec4',
   'nines':          '#7f9630',
   'icapital':       '#dc6424',
-  'copia':          '#1f8f72'
+  'copia':          '#1f8f72',
+  'inyo':           '#5c4dce'
 };
 
 const PH_STAGE_ABBR = ['①','②','③.1','③.2','③.3','③.4','④','⑤','⑥'];
