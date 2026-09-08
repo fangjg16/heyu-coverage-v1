@@ -133,7 +133,7 @@
   }
   .chrome-bar .ph-legend {
     display: grid;
-    grid-template-columns: repeat(5, max-content);
+    grid-template-columns: repeat(6, max-content);
     column-gap: 10px;
     row-gap: 4px;
     align-items: center;
@@ -948,9 +948,11 @@ const FO_PRODUCT_RAIL = [
   { category:'资产准入平台', form:'平台', coreValue:'标准化交易通道', reps:'iCapital、CAIS、Moonfare、Titanbay、Arch', examples:[
     { id:'icapital', label:'iCapital', implemented:true }
   ]},
-  { category:'软件/SaaS', form:'软件', coreValue:'组合报告 / 私募 Deal OS', reps:'Addepar、Masttro、Copia、Inyo、Etops、Eton、FundCount、Dynamo', examples:[
+  { category:'软件/SaaS', form:'软件', coreValue:'组合报告 / 私募 Deal OS', reps:'Addepar、Masttro、Copia、Inyo、Reuben AI、FamilyOfficer、Etops、Eton、FundCount、Dynamo', examples:[
     { id:'copia', label:'Copia', implemented:true },
-    { id:'inyo', label:'Inyo', implemented:true }
+    { id:'inyo', label:'Inyo', implemented:true },
+    { id:'reuben-ai', label:'Reuben AI', implemented:true },
+    { id:'familyofficer', label:'FamilyOfficer', implemented:true }
   ]}
 ];
 
@@ -1114,6 +1116,21 @@ const PRODUCT_COVERAGE = {
       { rowLabel:'私募信贷', cols:INYO_COLS_SOURCING_THROUGH_EXEC },
       { rowLabel:'地产 / 基建', cols:INYO_COLS_SOURCING_THROUGH_EXEC }
     ]
+  },
+  'reuben-ai': {
+    hint:'私募股权、私募信贷、地产/基建、影响力投资 × ②—④（机会发掘—执行）',
+    covers:[
+      { rowLabel:'私募股权', cols:INYO_COLS_SOURCING_THROUGH_EXEC },
+      { rowLabel:'私募信贷', cols:INYO_COLS_SOURCING_THROUGH_EXEC },
+      { rowLabel:'地产 / 基建', cols:INYO_COLS_SOURCING_THROUGH_EXEC },
+      { rowLabel:'影响力投资', cols:INYO_COLS_SOURCING_THROUGH_EXEC }
+    ]
+  },
+  'familyofficer': {
+    hint:'私募股权 × ②—④（机会发掘—执行）',
+    covers:[
+      { rowLabel:'私募股权', cols:INYO_COLS_SOURCING_THROUGH_EXEC }
+    ]
   }
 };
 
@@ -1132,7 +1149,9 @@ const FIXED_EXAMPLE_COLORS = {
   'nines':          '#7f9630',
   'icapital':       '#dc6424',
   'copia':          '#1f8f72',
-  'inyo':           '#5c4dce'
+  'inyo':           '#5c4dce',
+  'reuben-ai':      '#c43d6e',
+  'familyofficer':  '#3d7a6a'
 };
 
 const PH_STAGE_ABBR = ['①','②','③.1','③.2','③.3','③.4','④','⑤','⑥'];
