@@ -1550,14 +1550,13 @@ function refreshPhScopeOverlay(){
     if(!cells.length) return;
     let runs = rowRunsFromCells(cells);
     runs = mergeRunsVertical(runs);
-    const insetBase = 1.5 + stackIdx * 2.5;
+    /** 层数多时缩小步进，避免最内层（覆盖最少）inset 过大被跳过不画 */
+    const insetStep = nDraw <= 4 ? 2.5 : Math.max(1.1, 11 / Math.max(1, nDraw - 1));
+    const insetBase = 1.5 + stackIdx * insetStep;
     /** TF：额外内缩（更靠里的壳）；MFO / IQ-EQ：额外外扩（更靠外的壳） */
-    const inset = Math.max(
-      1,
-      insetBase
-        + (pid === 'trusted-family' ? 3 : 0)
-        - (pid === 'bank-mfo' || pid === 'iq-eq' ? 3 : 0)
-    );
+    const insetBias =
+      (pid === 'trusted-family' ? Math.min(3, insetStep + 0.5) : 0)
+      - (pid === 'bank-mfo' || pid === 'iq-eq' ? Math.min(3, insetStep + 0.5) : 0);
     const stroke = fixedExampleColor(pid);
     const dash = overlayDashStyleForPid(pid);
     const fillOpacityBase = nDraw === 1
@@ -1571,6 +1570,9 @@ function refreshPhScopeOverlay(){
     runs.forEach(run=>{
       const box = rectForRowColSpan(wrap, run.row, run.rowEnd, run.c0, run.c1);
       if(!box || box.width < 2 || box.height < 2) return;
+      /** 保证最内层仍有可见框，不被 inset 挤没 */
+      const maxInset = Math.max(1, Math.min((box.width - 10) / 2, (box.height - 10) / 2));
+      const inset = Math.min(Math.max(1, insetBase + insetBias), maxInset);
       const x = box.left + inset;
       const y = box.top + inset;
       const rw = box.width - 2 * inset;
