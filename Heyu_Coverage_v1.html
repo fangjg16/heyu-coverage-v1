@@ -756,7 +756,7 @@
   <div class="stat">已选 <span class="num" id="product-sel-count">0</span></div>
   <div class="sep"></div>
   <button type="button" class="ghost" onclick="clearProductSelection()">清空</button>
-  <button type="button" class="ghost heyu-scope-toggle" id="btn-toggle-heyu-scope" aria-pressed="false" title="显示或隐藏合域重点：③ 分析研判（3.1～3.4）× 地产/基建、大宗、收藏、牌照与资源网络">合域范围</button>
+  <button type="button" class="ghost heyu-scope-toggle" id="btn-toggle-heyu-scope" aria-pressed="false" title="显示或隐藏合域重点：② 机会发掘 + ③ 分析研判（3.1～3.4）× 地产/基建、大宗、收藏、私募股权、贸易/牌照/配额/网络">合域范围</button>
   <button type="button" class="ghost" id="btn-export-matrix-png" title="导出 PNG：含标题、图例、矩阵覆盖层，以及底部「产品与图例」对照表">导出图片</button>
   <div class="ph-legend" id="ph-legend"><span class="ph-legend-empty">点选例子后在此显示图例</span></div>
 </div>
@@ -1232,9 +1232,9 @@ function rowIdByLabel(label){
   return r ? r.id : null;
 }
 
-/** 合域重点：③ 分析研判（列 2—5 = 3.1~3.4）× 实物与战略资源相关四行（与 coverage_data 行名一致） */
+/** 合域重点：② 机会发掘 + ③ 分析研判（列 1—5 = ② + 3.1~3.4）× 相关业务行（与 coverage_data 行名一致） */
 const HEYU_SCOPE_ROW_LABELS = ['地产 / 基建','大宗商品','收藏品','私募股权','贸易/牌照/配额/网络...'];
-const HEYU_SCOPE_COL_0 = 2;
+const HEYU_SCOPE_COL_0 = 1;
 const HEYU_SCOPE_COL_1 = 5;
 
 function heyuScopeCells(){
